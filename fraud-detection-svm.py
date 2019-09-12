@@ -9,12 +9,13 @@
 """
 from __future__ import division
 import numpy as np
-from SVM import *
+from lib.classifiers.SVM import *
 from sklearn.model_selection import train_test_split
 import sys
 import pandas as pd
 from sklearn import svm
 from sklearn.metrics import  roc_curve
+
 
 if sys.version_info[0] >= 3:
     xrange = range
@@ -76,7 +77,7 @@ class SVM(object):
         model = svm.SVC(kernel='rbf', C=1, gamma=1)
 
         # there is various option associated with it, like changing kernel, gamma and C value. Will discuss more
-        #  about it in next section.Train the model using the training sets and check score
+        # about it in next section.Train the model using the training sets and check score
         model.fit(train_x, train_y)
         model.score(train_x, train_y)
         # Predict Output
@@ -84,14 +85,18 @@ class SVM(object):
         tpr, accurate = self.cal_rate(test_y, predicted)
         print('True Positive Rate : ', tpr)
         print('Accurate Rate : ', accurate)
+        return predicted
+
 
 
 if __name__ == '__main__':
-    print('增强前')
+    # print('增强前')
     # SVM('logistic.csv').main()
-    SVM('data_processed.csv').main()
-    print('增强后')
-    SVM('logistic.csv', 'syn_real.csv', False).main()     # 0.1
-    SVM('data_processed.csv', 'syn_real.csv', False).main()     # 0.1
-    # SVM('syn_amplified.csv', 'syn_real.csv').main()            # 0
-    # SVM('/Users/xyh/Desktop/GAN/amplify-data/test34/logistic.csv').main()
+    # SVM('/Users/xyh/Desktop/GAN/MyDL/datasets/ieee-fraud-detection/train.csv').svm2class()
+    svm = SVM('/Users/xyh/Desktop/GAN/MyDL/datasets/ieee-fraud-detection/train.csv').main()
+    pd.DataFrame(svm).to_csv("svm.csv", index=None)
+    # print('增强后')
+    # SVM('logistic.csv', 'syn_real.csv', False).main()     # 0.1
+    # SVM('data_processed.csv', 'syn_real.csv', False).main()     # 0.1
+    # # SVM('syn_amplified.csv', 'syn_real.csv').main()            # 0
+    # # SVM('/Users/xyh/Desktop/GAN/amplify-data/test34/logistic.csv').main()

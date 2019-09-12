@@ -144,7 +144,7 @@ class GAN(object):
 
     def generator(self, image, gf_dim=1, dim=16, reuse=False, name="generator"):
         """
-        Four CNN + Four DCNN + one FC
+        Four CNN(BN+lrelu) + Four DCNN + one FC
         :param image: [n, dim]
         :param gf_dim: filter
         :param dim: image.get_shape()[1]
@@ -153,22 +153,30 @@ class GAN(object):
         :return:[1, p]
         """
         # input_dim = int(image.get_shape()[-1])  # 获取输入通道
-        dropout_rate = 0.5  # 定义dropout的比例
+        dropout_rate = 0.3  # 定义dropout的比例
         batch_size = image.get_shape()[0]
         with tf.variable_scope(name):
             if reuse:
                 tf.get_variable_scope().reuse_variables()
             else:
                 assert tf.get_variable_scope().reuse is False
-            image = tf.reshape(image, [1, batch_size, -1, 1])
-            e1 = batch_norm(conv2d(input_=image, output_dim=gf_dim, kernel_size=4, stride=1, name='g_e1_conv'),
-                            name='g_bn_e1')
-            e2 = batch_norm(conv2d(input_=lrelu(e1), output_dim=gf_dim * 2, kernel_size=4, stride=1, name='g_e2_conv'),
-                            name='g_bn_e2')
-            e3 = batch_norm(conv2d(input_=lrelu(e2), output_dim=gf_dim * 4, kernel_size=4, stride=1, name='g_e3_conv'),
-                            name='g_bn_e3')
-            e4 = batch_norm(conv2d(input_=lrelu(e3), output_dim=gf_dim * 8, kernel_size=4, stride=1, name='g_e4_conv'),
-                            name='g_bn_e4')
+            # image = tf.reshape(image, [1, batch_size, -1, 1])
+
+            e1 = batch_norm(tf.layers.max_pooling2d(conv2d(input_=image, output_dim=gf_dim, kernel_size=4, stride=1, name='g_e1_conv'),
+                                                    pool_size=[2, 2], strides=2, name='g_conv_p1'), name='g_bn_e1')
+            e1 = tf.nn.dropout(e1, dropout_rate)
+
+            e2 = batch_norm(tf.layers.max_pooling2d(conv2d(input_=lrelu(e1), output_dim=gf_dim * 2, kernel_size=4, stride=1, name='g_e2_conv'),
+                                                    pool_size=[2, 2], strides=2, name='g_conv_p2'), name='g_bn_e2')
+            e2 = tf.nn.dropout(e2, dropout_rate)
+
+            e3 = batch_norm(tf.layers.max_pooling2d(conv2d(input_=lrelu(e2), output_dim=gf_dim * 4, kernel_size=4, stride=1, name='g_e3_conv'),
+                                                    pool_size=[2, 2], strides=2, name='g_conv_p3'), name='g_bn_e3')
+            e3 = tf.nn.dropout(e3, dropout_rate)
+
+            e4 = batch_norm(tf.layers.max_pooling2d(conv2d(input_=lrelu(e3), output_dim=gf_dim * 8, kernel_size=4, stride=1, name='g_e4_conv'),
+                                                    pool_size=[2, 2], strides=2, name='g_conv_p4'), name='g_bn_e4')
+            e4 = tf.nn.dropout(e4, dropout_rate)
 
             d1 = tcl.conv2d_transpose(e4, gf_dim * 8, 4, stride=1,
                                       activation_fn=tf.nn.relu, normalizer_fn=None, padding='SAME',
@@ -207,7 +215,7 @@ class GAN(object):
             else:
                 assert tf.get_variable_scope().reuse is False
             dim = image.get_shape()[0]
-            image = tf.reshape(image, [1, dim, -1, 1])
+            # image = tf.reshape(image, [1, dim, -1, 1])
             h0 = lrelu(conv2d(input_=image, output_dim=df_dim, kernel_size=4, stride=2, name='d_h0_conv'))
             h1 = lrelu(batch_norm(conv2d(input_=h0, output_dim=df_dim * 2, kernel_size=4, stride=2, name='d_h1_conv'),
                                   name='d_bn1'))
@@ -229,10 +237,10 @@ class GAN(object):
 
     def main(self):
         z_placeholder = tf.placeholder(tf.float32, [self.batch_size, self.z_dimensions], name='z_placeholder')
-        x_placeholder = tf.placeholder(tf.float32, shape=[self.batch_size, self.x_dimensions], name='x_placeholder')
+        x_placeholder = tf.placeholder(tf.float32, shape=[self.batch_size, np.sqrt(self.x_dimensions), np.sqrt(self.x_dimensions), 1], name='x_placeholder')
 
-        g = self.generator(z_placeholder, dim=self.x_dimensions, reuse=False, name="generator")
-        Gz = g
+        g = self.generator(tf.reshape(z_placeholder, [self.batch_size, int(np.sqrt(self.z_dimensions)), int(np.sqrt(self.z_dimensions)), 1]), dim=self.x_dimensions, reuse=False, name="generator")
+        Gz = tf.reshape(g, [self.batch_size, int(np.sqrt(self.x_dimensions)), int(np.sqrt(self.x_dimensions)), 1])
         Dx = self.discriminator(x_placeholder, reuse=False, name="discriminator")
         Dg = self.discriminator(Gz, reuse=True, name="discriminator")
 
@@ -267,7 +275,7 @@ class GAN(object):
             try:
                 # Train generator and discriminator together
                 for i in range(self.iteration):
-                    real_image_batch = next_batch(self.data, self.batch_size).reshape([self.batch_size, self.x_dimensions])
+                    real_image_batch = next_batch(self.data, self.batch_size).reshape([self.batch_size, int(np.sqrt(self.x_dimensions)), int(np.sqrt(self.x_dimensions)), 1])
                     z_batch = self.generate_z(self.batch_size, 'None').reshape([self.batch_size, self.z_dimensions])
 
                     _ = sess.run(d_train, feed_dict={x_placeholder: real_image_batch, z_placeholder: z_batch,
@@ -289,7 +297,7 @@ class GAN(object):
             saver.restore(sess, self.model_path)
             z_batch = self.generate_z(1, 'None').reshape([1, self.z_dimensions])
             z_placeholder = tf.placeholder(tf.float32, [1, self.z_dimensions], name='z_placeholder')
-            generated_images = self.generator(z_placeholder, dim=self.x_dimensions, reuse=True)
+            generated_images = self.generator(tf.reshape(z_placeholder, [1, int(np.sqrt(self.z_dimensions)), int(np.sqrt(self.z_dimensions)), 1]), dim=self.x_dimensions, reuse=True)
             res = np.array(0)
             for i in range(self.test_n):
                 images = sess.run(generated_images, {z_placeholder: z_batch})

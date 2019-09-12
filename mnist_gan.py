@@ -22,5 +22,5 @@ validation_Y = mnist.validation.labels      #验证集标签
 test_Y = mnist.test.labels                  #测试集标签
 
 
-GAN(data=train_X, x_dimensions=train_X.shape[1], z_dimensions=800, iteration=1, test_n=20, test_image=True, train=True,
-    loss_func='wgangp')
+GAN(data=train_X, x_dimensions=train_X.shape[1], z_dimensions=841, iteration=100000, test_n=20, test_image=False, train=True,
+    loss_func='gan', model_path='model/mnist1/gan.ckpt')

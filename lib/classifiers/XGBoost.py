@@ -86,3 +86,4 @@ class XGBoost(object):
         preds = pd.DataFrame([x for x in preds])
         preds = MinMaxScaler().fit_transform(preds.reshape(-1, 1))
         return preds
+
